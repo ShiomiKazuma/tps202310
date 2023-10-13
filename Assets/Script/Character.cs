@@ -20,6 +20,19 @@ public class Character : MonoBehaviour
     public bool _isJumping = false;
     public float _groundDistance = 0.01f;
     public LayerMask _groundMask = ~0;
+    /// <summary>走る速度 </summary>
+    public float _runSpeed = 3f;
+    /// <summary>加速度 </summary>
+    public float _acceleration = 10f;
+    /// <summary>登れる坂の傾斜の閾値 </summary>
+    public float _maxGroundAngle = 45;
+
+    Vector2 movementInput = Vector2.zero;
+
+    Rigidbody _groundRigidbody = null; // 地面のRigidbody
+    Vector3 _groundNormal = Vector3.up; //地面の法線
+    Vector3 _groundContatPoint = Vector3.zero;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -28,20 +41,51 @@ public class Character : MonoBehaviour
     }
 
     // Update is called once per frame
-    void Update()
-    {
+    //void Update()
+    //{
 
-        _inputX = Input.GetAxis("Horizontal");
-        _inputZ = Input.GetAxis("Vertical");
+    //    _inputX = Input.GetAxis("Horizontal");
+    //    _inputZ = Input.GetAxis("Vertical");
+    //}
+
+    void ApplyMotion()
+    {
+        //右と前のデフォルトを設定
+        Vector3 movementRight = Vector3.right;
+        Vector3 movementForward = Vector3.forward;
+
+        if(playerCamera != null)
+        {
+            Vector3 cameraRight = playerCamera.transform.right;
+            Vector3 cameraForward = playerCamera.transform.forward;
+        }
+        _rb.AddForce(new Vector3(movementInput.x, 0, movementInput.y) * _acceleration, ForceMode.Acceleration);
     }
 
     private void FixedUpdate()
     {
-        _isGrounded = CheckForGround();
+        //_isGrounded = CheckForGround();
         //if (Input.GetButtonDown("Jump"))
         //{
         //    Jump.JumpAction(_rb, _jumpPower, _isGrounded, _isJumping);
         //}
+        RaycastHit hitInfo = CheckForGround();
+        //衝突していない場合にNullを返す
+        _isGrounded = hitInfo.collider != null;
+
+        if (_isGrounded )
+        {
+            _groundNormal = hitInfo.normal;
+            _groundContatPoint = hitInfo.point;
+            _groundRigidbody = hitInfo.rigidbody;
+        }
+        else
+        {
+            //デフォルトの値にする
+            _groundNormal = Vector3.up;
+            _groundRigidbody = null;
+            _groundContatPoint = transform.TransformPoint(_capsuleCollider.center + Vector3.down * _capsuleCollider.height * 0.5f);
+        }
         if (_rb.velocity.y < 0)
         {
             _isJumping = false;
@@ -51,11 +95,15 @@ public class Character : MonoBehaviour
         {
             _rb.AddForce(Physics.gravity * _rb.mass * (_jumpGravityScale - 1f));
         }
-        Vector3 direction = new Vector3(_inputX, 0, _inputZ).normalized;
-        _rb.AddForce(direction * _moveSpeed);
+        //Vector3 direction = new Vector3(_inputX, 0, _inputZ).normalized;
+        //_rb.AddForce(direction * _moveSpeed);
+        if(!_isJumping && _isGrounded)
+        {
+            ApplyMotion();
+        }
     }
 
-    bool CheckForGround()
+    RaycastHit CheckForGround()
     {
         //直線のレイを飛ばす方法
         //Vector3 capsuleBottom = _capsuleCollider.center + Vector3.down * _capsuleCollider.height * 0.5f;
@@ -66,9 +114,12 @@ public class Character : MonoBehaviour
         //float extent = Mathf.Max(0, _capsuleCollider.height * 0.5f - _capsuleCollider.radius);
         float extent = _capsuleCollider.height * 0.5f - _capsuleCollider.radius;
         Vector3 origin = transform.TransformPoint(_capsuleCollider.center + Vector3.down * extent) + Vector3.up * _groundDistance;
+
+        RaycastHit hitInfo;
         Ray sphereCastRay = new Ray(origin, Vector3.down);
-        bool raycastHit = Physics.SphereCast(sphereCastRay, _capsuleCollider.radius, _groundDistance * 2f, _groundMask);
-        return raycastHit;
+        //bool raycastHit = Physics.SphereCast(sphereCastRay, _capsuleCollider.radius, _groundDistance * 2f, _groundMask);
+        Physics.SphereCast(sphereCastRay, _capsuleCollider.radius, out hitInfo, _groundDistance * 2f, _groundMask);
+        return hitInfo;
     }
 
     void Jump(bool state)
@@ -86,5 +137,15 @@ public class Character : MonoBehaviour
     void OnJump(InputValue inputValue)
     {
         Jump(inputValue.isPressed);
+    }
+
+    public void Move(Vector2 input)
+    {
+        movementInput = input;
+    }
+
+    void OnMove(InputValue inputValue)
+    {
+        Move(inputValue.Get<Vector2>());
     }
 }
