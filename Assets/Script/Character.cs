@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent (typeof(CapsuleCollider))]
 public class Character : MonoBehaviour
 {
+    Animator _animator;
     public Camera playerCamera = default;
     public GameObject character = default;
     Rigidbody _rb;
@@ -26,7 +28,7 @@ public class Character : MonoBehaviour
     public float _acceleration = 10f;
     /// <summary>登れる坂の傾斜の閾値 </summary>
     public float _maxGroundAngle = 45;
-
+    public float turnSmoothing = 0.8f;
     Vector2 movementInput = Vector2.zero;
 
     Rigidbody _groundRigidbody = null; // 地面のRigidbody
@@ -36,6 +38,7 @@ public class Character : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        _animator = GetComponent<Animator>();
         _rb = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
     }
@@ -58,8 +61,35 @@ public class Character : MonoBehaviour
         {
             Vector3 cameraRight = playerCamera.transform.right;
             Vector3 cameraForward = playerCamera.transform.forward;
+            //地面に対する方向を計算する
+            movementRight = ProjectOnPlane(cameraRight, _groundNormal).normalized;
+            movementForward = ProjectOnPlane(cameraForward, _groundNormal).normalized;
         }
-        _rb.AddForce(new Vector3(movementInput.x, 0, movementInput.y) * _acceleration, ForceMode.Acceleration);
+        Vector3 movement = movementRight * movementInput.x + movementForward * movementInput.y;
+        //プレイヤーの向きを変える
+        Vector3 rotateTarget = new Vector3(movement.x, 0, movement.z);
+        if(rotateTarget.magnitude > 0.1f)
+        {
+            Quaternion lookRotation = Quaternion.LookRotation(rotateTarget);
+            transform.rotation = Quaternion.Lerp(lookRotation, transform.rotation, turnSmoothing);
+        }
+
+        Vector3 velocity = _rb.velocity;
+        if(_groundRigidbody != null)
+        {
+            velocity -= _groundRigidbody.velocity;
+        }
+
+        Vector3 groundVelocity = ProjectOnPlane(_rb.velocity, _groundNormal);
+        float groundAngle = 90f - Mathf.Asin(_groundNormal.y) * 180f / Mathf.PI;
+        bool movingDownhill = movement.y <= 0f;
+        if(groundAngle <= _maxGroundAngle || movingDownhill)
+        {
+            if (groundVelocity.magnitude < _runSpeed)
+            {
+                _rb.AddForce(movement * _acceleration, ForceMode.Acceleration);
+            }
+        }
     }
 
     private void FixedUpdate()
@@ -147,5 +177,10 @@ public class Character : MonoBehaviour
     void OnMove(InputValue inputValue)
     {
         Move(inputValue.Get<Vector2>());
+    }
+
+    Vector3 ProjectOnPlane(Vector3 vector, Vector3 normal)
+    {
+        return Vector3.Cross(normal, Vector3.Cross(vector, normal));
     }
 }
