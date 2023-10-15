@@ -67,13 +67,16 @@ public class Character : MonoBehaviour
         }
         Vector3 movement = movementRight * movementInput.x + movementForward * movementInput.y;
         //プレイヤーの向きを変える
-        Vector3 rotateTarget = new Vector3(movement.x, 0, movement.z);
-        if(rotateTarget.magnitude > 0.1f)
+        
+        if(character !=  null)
         {
-            Quaternion lookRotation = Quaternion.LookRotation(rotateTarget);
-            transform.rotation = Quaternion.Lerp(lookRotation, transform.rotation, turnSmoothing);
+            Vector3 rotateTarget = new Vector3(movement.x, 0, movement.z);
+            if (rotateTarget.magnitude > 0.1f)
+            {
+                Quaternion lookRotation = Quaternion.LookRotation(rotateTarget);
+                character.transform.rotation = Quaternion.Lerp(lookRotation, character.transform.rotation, turnSmoothing);
+            }
         }
-
         Vector3 velocity = _rb.velocity;
         if(_groundRigidbody != null)
         {
@@ -141,8 +144,8 @@ public class Character : MonoBehaviour
         //bool raycastHit = Physics.Raycast(feetPosition, Vector3.down, _groundDistance * 2, _groundMask);
 
         //スフィア型のレイを飛ばす方法
-        //float extent = Mathf.Max(0, _capsuleCollider.height * 0.5f - _capsuleCollider.radius);
-        float extent = _capsuleCollider.height * 0.5f - _capsuleCollider.radius;
+        float extent = Mathf.Max(0, _capsuleCollider.height * 0.5f - _capsuleCollider.radius);
+        //float extent = _capsuleCollider.height * 0.5f - _capsuleCollider.radius;
         Vector3 origin = transform.TransformPoint(_capsuleCollider.center + Vector3.down * extent) + Vector3.up * _groundDistance;
 
         RaycastHit hitInfo;
